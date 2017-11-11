@@ -1,0 +1,170 @@
+---
+title: "ISIL_2_8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_2_8
+
+This is a short excerpt of the tutorials from the ISIL book (Chapter 2, Question 8) 
+
+## Required Libraries
+Load the required librarys for the question
+```{r library, include=FALSE}
+library(ggplot2)
+library(reshape2)
+library(PerformanceAnalytics)
+```
+
+## Data
+  Load the data from the csv file
+```{r college}
+college = read.csv("College.csv", header = TRUE, sep = ",")
+```
+
+  Clean the data of the university name column, and add them as row ids
+```{r clean_college, echo=FALSE, include=FALSE}
+#Change the numerical row numbers to the university row name
+rownames(college) = college[,1]
+#fix(college)
+#Remove the university column
+college = college[,-1]
+#8(c)
+# i Obtain a summary of the data frame
+```
+  Create a new feature called Elite, based on if there are more than 50 students from the top 10% of high school graduates
+```{r create_Elite_feature, echo=FALSE}
+college$Elite = "No"
+college[ which(college$Top10perc>50), ]$Elite = "Yes"
+college$Elite = as.factor(college$Elite)
+```
+
+Below is a summary of the college data:
+```{r summary_college}
+summary(college)
+```
+
+## Visualisations
+
+##Elite vs Non-Elite
+We want to find out if there are any distribution differences between elite and non-elite universities:
+
+```{r plot_elite_vs_nonelite, echo=FALSE, warning=FALSE, fig.width=20, fig.height=20}
+quant = melt(college, id=as.array(names(Filter(is.factor, college))))
+ggplot(quant, aes(x = value, group=Elite, fill=Elite)) + 
+  facet_wrap(~variable,scales = "free") + 
+  geom_histogram(aes(y = ..density..), position="dodge", binwidth = 0.01) +
+  geom_density(alpha=0.4)+
+  scale_x_log10()+
+  labs(title="Elite histogram plot",x="Count", y = "Density")+
+  theme_minimal() +
+  theme(strip.text = element_text(size = rel(2)))+
+  scale_color_brewer(palette = "Paired")
+cat("  \n")
+```
+
+## Inferential Analysis - Elite vs. Non-Elite
+```{r t_test, echo=FALSE}
+nums_col <- sapply(college, is.numeric)
+t(sapply(college[,nums_col], function(x) 
+     unlist(t.test(x~college$Elite)[c("estimate","p.value","statistic","conf.int")])))
+```
+* The Elite universities receive, enrol, and accept more applications than the other universities
+* They have more full-time, but fewer part-time undergraduates than the other universities
+* They receive more out of state tuition than the other universities. It has a negatively skewed distribution. Why is this so? (futher analysis below)
+```{r elite_and_non_elite_outstate, echo=FALSE}
+elite_outstate = college[which(college$Elite=='Yes'),]$Outstate
+non_elite_outstate = college[which(college$Elite=='No'),]$Outstate
+```
++ As shown in the below boxplot, the Elite universities have a slightly larger IQR, and a lower mean than median value, which is reflected in its negative skew. The Non-elite university has a slightly more normal distribution:
+
+
+```{r plot_boxplot_out_state, echo=FALSE, warning=FALSE, fig.width=3, fig.height=3}
+ggplot(college, aes(x = Elite, y=Outstate)) + 
+  geom_boxplot() +
+  theme_minimal() +
+  theme(strip.text = element_text(size = rel(2)))
+cat("  \n")
+```
+
+Stat    | Elite                                                             |  Non-Elite
+------- | -------------------------------------------                       | ---------------------------------------------
+Mean    | `r format(mean(elite_outstate), digits = 7)`                      | `r format(mean(non_elite_outstate), digits = 7)`
+Median  | `r format(median(elite_outstate), digits = 7)`                    | `r format(median(non_elite_outstate), digits = 7)`
+25th    | `r format(quantile(elite_outstate, probs=c(0.25)), digits = 7)`   | `r format(quantile(non_elite_outstate, probs=c(0.25)), digits = 7)`
+75th    | `r format(quantile(elite_outstate, probs=c(0.75)), digits = 7)`   | `r format(quantile(non_elite_outstate, probs=c(0.75)), digits = 7)`
+
+
+* The room board is more expensive than the other universities, with a bimodal distribution (a dip in price in the middle of the distribution). What is causing this? Is it due to varying real estate prices based on state? (futher analysis below)
+
+```{r plot_elite_vs_nonelite_roomboard, echo=FALSE, warning=FALSE, fig.width=5, fig.height=5}
+ggplot(quant[which(quant$variable =='Room.Board' & quant$value>3000 & quant$value<7000),], aes(x = value, group=Elite, fill=Elite)) +   geom_histogram(aes(y = ..density..), position="dodge", binwidth = 100) +
+  geom_density(alpha=0.4)+
+  labs(title="Elite histogram plot",x="Count", y = "Density")+
+  theme_minimal() +
+  theme(strip.text = element_text(size = rel(2)))+
+  scale_color_brewer(palette = "Paired")
+cat("  \n")
+```
+  + The dip occurs between 4500 - 5500. As shown below, the dip coincides with a lower Expenditure.
+```{r, echo=FALSE}
+college_elite_tmp = college[which(college$Elite=="Yes"),]
+college_elite_tmp$dip_room_board = "No"
+college_elite_tmp[which(college_elite_tmp$Room.Board>4500 & college_elite_tmp$Room.Board<5500),]$dip_room_board = "Yes"
+college_elite_tmp$dip_room_board = as.factor(college_elite_tmp$dip_room_board)
+quant = melt(college_elite_tmp, id=as.array(names(Filter(is.factor, college_elite_tmp))))
+```
+```{r plot_dip_in_roomw_board, echo=FALSE, warning=FALSE, fig.width=20, fig.height=20}
+ggplot(quant, aes(x = value, group=dip_room_board, fill=dip_room_board)) + 
+  facet_wrap(~variable,scales = "free") + 
+  geom_histogram(aes(y = ..density..), position="dodge", binwidth = 0.1) +
+  geom_density(alpha=0.4)+
+  scale_x_log10()+
+  labs(title="Private histogram plot",x="Count", y = "Density")+
+  theme_minimal() +
+  theme(strip.text = element_text(size = rel(2)))+
+  scale_color_brewer(palette = "Paired")
+cat("  \n")
+```
+```{r, echo=FALSE}
+nums_col <- sapply(college_elite_tmp, is.numeric)
+t(sapply(college_elite_tmp[,nums_col], function(x) 
+     unlist(t.test(x~college_elite_tmp$dip_room_board)[c("estimate","p.value","statistic","conf.int")])))
+cat("  \n")
+```
+
+
+* The personal spending are approximately similar around the mean, but there are fewer Elite university students that tend to spend less after the mean. (further analysis below)
+* There are higher number of PhDs, and Teriminal degrees at Elite universities
+* There is a lower Student to faculty ratio at Elite universitites. Is it because there are more faculties at Elite universities or more students at Non-elite universities?
+* The Instructional Expenditure per Student, Percentage of Alumni who Donate, and Graduation Rates are higher at Elite universities.
+
+
+##Private vs Non-Private
+As well as Private vs. Non-Private:
+
+
+```{r plot_private_vs_nonprivate, echo=FALSE, warning=FALSE, fig.width=20, fig.height=20}
+ggplot(quant, aes(x = value, group=Private, fill=Private)) + 
+  facet_wrap(~variable,scales = "free") + 
+  geom_histogram(aes(y = ..density..), position="dodge", binwidth = 0.01) +
+  geom_density(alpha=0.4)+
+  scale_x_log10()+
+  labs(title="Private histogram plot",x="Count", y = "Density")+
+  theme_minimal() +
+  theme(strip.text = element_text(size = rel(2)))+
+  scale_color_brewer(palette = "Paired")
+cat("  \n")
+
+```
+
+## Inferential Analysis - Private vs. Non-Private
+
+```{r t_test_private, echo=FALSE}
+nums_col <- sapply(college, is.numeric)
+t(sapply(college[,nums_col], function(x) 
+     unlist(t.test(x~college$Private)[c("estimate","p.value","statistic","conf.int")])))
+```
