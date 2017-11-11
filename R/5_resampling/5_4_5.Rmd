@@ -1,0 +1,148 @@
+---
+title: "ISIL_5_4"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_5_4_5
+
+This is a short excerpt of the tutorials from the ISIL book (Chapter 5.4) 
+
+Load the required librarys for the question
+```{r library, include=FALSE}
+library(ISLR)
+library(PerformanceAnalytics)
+library(ggplot2)
+```
+
+5 a) Fit a logistic regression model that uses income and balance to predict default.
+```{r load_data}
+attach(Default)
+```
+```{r model1, warning=FALSE}
+set.seed(1)
+model.fit1 = glm(default ~ income + balance, data = Default, family = binomial)
+summary(model.fit1)
+```
+
+5 b) Using the validation set approach, estimate the test error of this model. In order to do this, you must perform the following steps:
+  i) Split the sample set into a training set and a validation set.
+```{r sample1, warning=FALSE}
+train_rows <- sample(nrow(Default), nrow(Default)/2)
+```
+
+  ii) Fit a multiple logistic regression model using only the training observations.
+```{r model2, warning=FALSE}
+model.fit2 = glm(default ~ income + balance, data = Default[train_rows,], family = binomial)
+summary(model.fit2)
+```
+
+  iii) Obtain a prediction of default status for each individual in the validation set by computing the posterior probability of default for that individual, and classifying the individual to the default category if the posterior probability is greater than 0.5.
+```{r model3a, warning=FALSE}
+model.prob2 <-predict(model.fit2, Default[-train_rows, ], type = "response")
+model.pred2 = rep("No", nrow(Default[-train_rows, ]))
+model.pred2[model.prob2 > 0.5] = "Yes"
+```
+
+  iv) Compute the validation set error, which is the fraction of the observations in the validation set that are misclassified.
+```{r pred_accuracy_2, warning = FALSE}
+table(model.pred2, Default[-train_rows, ]$default)
+mse2<-mean(model.pred2 != Default[-train_rows, ]$default)
+mse2
+```
+
+
+c) Repeat the process in (b) three times, using three different splits of the observations into a training set and a validation set. Comment on the results obtained.
+```{r model_loop, warning=FALSE}
+train_loop <- function (i) {
+	train_rows <- sample(nrow(Default), i/10*nrow(Default))
+	model.fit2 = glm(default ~ income + balance, data = Default[train_rows,], family = binomial)
+	summary(model.fit2)
+	model.prob2 <-predict(model.fit2, Default[-train_rows, ], type = "response")
+	model.pred2 = rep("No", nrow(Default[-train_rows, ]))
+	model.pred2[model.prob2 > 0.5] = "Yes"
+	table(model.pred2, Default[-train_rows, ]$default)
+	mse2<-mean(model.pred2 != Default[-train_rows, ]$default)
+	return (c(length(train_rows), mse2))
+}
+mse_df <- do.call("rbind", sapply(2:9, FUN = train_loop, simplify = FALSE))
+colnames(mse_df) <- c("train_size", "mse")
+mse_df <- data.frame(mse_df)
+mse_df <- mse_df[with(mse_df,order(train_size)),]
+```
+
+Plotting the errors
+```{r model_plot, warning=FALSE, fig.width=10, fig.height=10}
+ggplot(data = mse_df, aes(x=train_size, y=mse)) + geom_line() + geom_point()
+```
+
+
+d) Now consider a logistic regression model that predicts the probability of default using income, balance, and a dummy variable
+for student. Estimate the test error for this model using the validation set approach. Comment on whether or not including a
+dummy variable for student leads to a reduction in the test error rate.
+
+```{r, model_dummy_var, warning = FALSE}
+model.fit2 = glm(default ~ income + balance + student, data = Default[train_rows,], family = binomial)
+summary(model.fit2)
+model.prob2 <-predict(model.fit2, Default[-train_rows, ], type = "response")
+model.pred2 = rep("No", nrow(Default[-train_rows, ]))
+model.pred2[model.prob2 > 0.5] = "Yes"
+table(model.pred2, Default[-train_rows, ]$default)
+mse2<-mean(model.pred2 != Default[-train_rows, ]$default)
+table(model.pred2, Default[-train_rows, ]$default)
+mse2
+```
+There is no observable improvement by including the student dummy variable.
+
+
+6 a) Using the summary() and glm() functions, determine the estimated standard errors for the coefficients associated with income
+and balance in a multiple logistic regression model that uses both predictors.
+
+```{r, model3, warning = FALSE}
+set.seed(1)
+model.fit3 = glm(default ~ income + balance, data = Default, family = binomial)
+summary(model.fit3)
+```
+
+b) Write a function, boot.fn(), that takes as input the Default data set as well as an index of the observations, and that outputs the coefficient estimates for income and balance in the multiple logistic regression model.
+```{r, model4, warning = FALSE}
+boot.fn <- function(data, index) {
+  fit <- glm(default ~ income + balance, data = data, family = binomial, subset = index)
+  return (coef(fit))
+}
+
+
+```
+c) Use the boot() function together with your boot.fn() function to estimate the standard errors of the logistic regression coefficients for income and balance.
+```{r model5, warning=FALSE}
+library(boot)
+boot(Default, boot.fn, 1000)
+```
+
+7 a) Fit a logistic regression model that predicts Direction using Lag1 and Lag2.
+```{r model6, warning=FALSE}
+attach(Weekly)
+set.seed(1)
+model.fit6 <- glm(Direction~Lag1+Lag2, data = Weekly, family = binomial)
+summary(model.fit6)
+```
+b) Fit a logistic regressionmodel that predicts Direction using Lag1 and Lag2 using all but the first observation.
+```{r model7, warning=FALSE}
+attach(Weekly)
+set.seed(1)
+model.fit6 <- glm(Direction~Lag1+Lag2, data = Weekly[-1,], family = binomial)
+summary(model.fit6)
+```
+
+```{r model8, warning=FALSE}
+model.prob2 <-predict(model.fit6, Weekly[1, ], type = "response")
+model.pred2 = rep("Down", nrow(Weekly[1, ]))
+model.pred2[model.prob2 > 0.5] = "Up"
+table(model.pred2, Weekly[1, ]$Direction)
+mse2<-mean(model.pred2 != Default[1, ]$Direction)
+table(model.pred2, Weekly[1, ]$Direction)
+mse2
+```

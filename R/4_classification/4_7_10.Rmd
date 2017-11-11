@@ -1,0 +1,188 @@
+---
+title: "ISLR Chapter 4 Exercise"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_4_7_10
+
+This is a short excerpt of the tutorials from the ISIL book (Chapter 4.7) 
+
+## 4.6.1 The Weekly Data  
+Load the required librarys for the question
+```{r library, include=FALSE}
+library(ISLR)
+library(MASS)
+library(PerformanceAnalytics)
+```
+
+Attach the data
+
+```{r attach, echo=FALSE}
+attach(Weekly)
+head(Weekly)
+col_names = colnames(Weekly)
+```
+
+### 10 a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?
+
+Find out the correlations between the predictors
+
+```{r correlation, warning = FALSE}
+name_col = names(Weekly)[sapply(Weekly, is.numeric)]
+name_col = paste(name_col, collapse="|")
+num_col = grep(name_col, col_names)
+summary(Weekly)
+cor(Weekly[, num_col])
+```
+```{r plot_correlation, warning = FALSE, echo = FALSE, fig.width=15, fig.height=15}
+chart.Correlation(Weekly[, num_col])
+```
+
+There is a correlation between Volume and Year (0.84). As the Year progresses, the Volume of Stock increases.
+
+### 10 b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+
+```{r glm_fit, warning = FALSE}
+model.fit=glm(Direction~.-Year-Today, data = Weekly, family = binomial)
+summary(model.fit)
+```
+
+Lag2 has a significant coefficient.
+
+### 10 c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+
+```{r glm_predict_1, warning = FALSE}
+model.prob = predict(model.fit, Weekly, type = "response")
+model.pred = rep("Down", length(model.prob))
+model.pred[model.prob > 0.5] = "Up"
+confusion_matrix = table(model.pred, Direction)
+confusion_matrix
+mean(model.pred == Weekly$Direction)
+```
+
+The overall directional accuracy is 56.10% 
+
+```{r glm_accuracy_1a, warning = FALSE}
+model.specificity <- confusion_matrix["Down", "Up"]/(confusion_matrix["Down", "Up"] + confusion_matrix["Down", "Down"]) 
+model.sensitivity <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Up", "Down"]) 
+model.precision <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Down", "Up"]) 
+
+data.frame("measurements"=c("specificity", "sensitivity", "model.precision"), "rate"=c(model.specificity, model.sensitivity, model.precision))
+```
+
+
+
+
+### 10 d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+
+```{r glm_predict_2, warning = FALSE}
+Year.train = (Year < 2009)
+Weekly.train = Weekly[Year.train, ]
+model.fit = glm(Direction~Lag2, data = Weekly.train, family = binomial)
+model.prob = predict(model.fit, Weekly[!Year.train, ], type = "response")
+model.pred = rep("Down", length(model.prob))
+model.pred[model.prob > 0.5] = "Up"
+confusion_matrix = table(model.pred, Direction[!Year.train])
+confusion_matrix
+mean(model.pred == Weekly[!Year.train, ]$Direction)
+```
+
+The overall directional accuracy is 62.5% 
+
+```{r glm_accuracy_2a, warning = FALSE}
+model.specificity <- confusion_matrix["Down", "Up"]/(confusion_matrix["Down", "Up"] + confusion_matrix["Down", "Down"]) 
+model.sensitivity <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Up", "Down"]) 
+model.precision <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Down", "Up"]) 
+
+data.frame("measurements"=c("specificity", "sensitivity", "model.precision"), "rate"=c(model.specificity, model.sensitivity, model.precision))
+```
+
+### 10 e) LDA
+
+```{r glm_predict_3, warning = FALSE}
+Year.train = (Year < 2009)
+Weekly.train = Weekly[Year.train, ]
+model.fit = lda(Direction ~Lag2, data = Weekly.train, family = binomial)
+model.prob = predict(model.fit, Weekly[!Year.train, ])
+model.pred = model.prob$class
+confusion_matrix = table(model.pred, Direction[!Year.train])
+confusion_matrix
+mean(model.pred == Weekly[!Year.train, ]$Direction)
+```
+
+The overall directional accuracy is 62.5% 
+
+```{r glm_accuracy_3a, warning = FALSE}
+model.specificity <- confusion_matrix["Down", "Up"]/(confusion_matrix["Down", "Up"] + confusion_matrix["Down", "Down"]) 
+model.sensitivity <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Up", "Down"]) 
+model.precision <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Down", "Up"]) 
+
+data.frame("measurements"=c("specificity", "sensitivity", "model.precision"), "rate"=c(model.specificity, model.sensitivity, model.precision))
+```
+
+
+### 10 f) QDA
+
+```{r glm_predict_4, warning = FALSE}
+Year.train = (Year < 2009)
+Weekly.train = Weekly[Year.train, ]
+model.fit = qda(Direction ~Lag2, data = Weekly.train, family = binomial)
+model.prob = predict(model.fit, Weekly[!Year.train, ])
+model.pred = model.prob$class
+confusion_matrix = table(model.pred, Direction[!Year.train])
+confusion_matrix
+mean(model.pred == Weekly[!Year.train, ]$Direction)
+```
+
+The overall directional accuracy is 58.6% 
+
+```{r glm_accuracy_4a, warning = FALSE}
+model.specificity <- confusion_matrix["Down", "Up"]/(confusion_matrix["Down", "Up"] + confusion_matrix["Down", "Down"]) 
+model.sensitivity <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Up", "Down"]) 
+model.precision <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Down", "Up"]) 
+
+data.frame("measurements"=c("specificity", "sensitivity", "model.precision"), "rate"=c(model.specificity, model.sensitivity, model.precision))
+```
+
+
+### 10 g) KNN
+
+```{r glm_predict_5, warning = FALSE}
+library(class)
+train.X <- as.matrix(Lag2[Year.train])
+test.X <- as.matrix(Lag2[!Year.train])
+train.Direction <- Direction[Year.train]
+set.seed(1)
+pred.knn <- knn(train.X, test.X, train.Direction, k = 1)
+confusion_matrix = table(pred.knn, Weekly[!Year.train, ]$Direction)
+confusion_matrix
+mean(pred.knn == Weekly[!Year.train, ]$Direction)
+```
+
+The overall directional accuracy is 58.5% 
+
+```{r glm_accuracy_5a, warning = FALSE}
+model.specificity <- confusion_matrix["Down", "Up"]/(confusion_matrix["Down", "Up"] + confusion_matrix["Down", "Down"]) 
+model.sensitivity <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Up", "Down"]) 
+model.precision <- confusion_matrix["Up", "Up"]/(confusion_matrix["Up", "Up"] + confusion_matrix["Down", "Up"]) 
+
+data.frame("measurements"=c("specificity", "sensitivity", "model.precision"), "rate"=c(model.specificity, model.sensitivity, model.precision))
+```
+The models from d) and e) perform the best
+
+i) Experiment with different combinations of predictors, including possible transformations and interactions, for each of the
+methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held
+out data. Note that you should also experiment with values for K in the KNN classifier.
+
+```{r lda_exp_1, warning = FALSE}
+model.fit = lda(Direction ~(Lag2+Lag3), data = Weekly.train, family = binomial)
+model.prob = predict(model.fit, Weekly[!Year.train, ])
+model.pred = model.prob$class
+confusion_matrix = table(model.pred, Direction[!Year.train])
+confusion_matrix
+mean(model.pred == Weekly[!Year.train, ]$Direction)
+```

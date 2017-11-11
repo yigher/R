@@ -1,0 +1,76 @@
+---
+title: "ISIL_6_7"
+output: github_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_6_7 Principal Components
+
+### 6.7.1 PCR
+
+```{r library, include=FALSE}
+library(ISLR)
+library(pls)
+attach(Hitters)
+set.seed(1)
+Hitters <- na.omit(Hitters)
+x <- model.matrix(Salary~., Hitters)[,-1]
+y <- Hitters$Salary
+train = sample(1:nrow(x), nrow(x)/2)
+test = (-train)
+y_test = y[test]
+```
+
+```{r pcr1}
+set.seed(2)
+pcr_fit1 <- pcr(Salary~., data=Hitters, scale=TRUE, validation="CV")
+summary(pcr_fit1)
+validationplot(pcr_fit1, val.type="MSEP")
+```
+
+The MSE is lowest at M=16, which is not far off p=19. It is almost no better than Least Square Regression. The CV error is approximately similar at M=1, so using 1 component might suffice.
+
+```{r pcr2}
+set.seed(1)
+pcr_fit2 <- pcr(Salary~., data=Hitters, subset=train, scale=TRUE, validation="CV")
+summary(pcr_fit2)
+validationplot(pcr_fit2, val.type="MSEP")
+```
+
+M=7 has the lowest MSE. Lets compute the test MSE
+```{r pc2_pred}
+pcr_pred = predict(pcr_fit2, x[test,], ncomp=7)
+mean((pcr_pred-y_test)^2)
+```
+
+Fit the PCR with M=7
+```{r pc3_pred}
+pcr_fit3 <- pcr(y~x, scale=TRUE, ncomp=7)
+summary(pcr_fit3)
+```
+
+### 6.7.2 PLS
+
+```{r pls1}
+set.seed(1)
+pls_fit4 <- plsr(Salary~., data=Hitters, subset=train, scale=TRUE, validation="CV")
+summary(pls_fit4)
+validationplot(pls_fit4, val.type="MSEP")
+```
+
+Optimal at M=2. Evaluating the corresponding test set.
+```{r pls2}
+pls_pred1 <- predict(pls_fit4, x[test,], ncomp=2)
+mean((pls_pred1 - y_test)^2)
+```
+Slightly higher than the other methods.
+
+Fit the PCR with M=2
+```{r pc3_pred2}
+pls_fit1 <- plsr(y~x, scale=TRUE, ncomp=2)
+summary(pls_fit1)
+```
+Notice that the percentage of variance in Salary that the two-component PLS fit explains, 46.40%, is almost as much as that explained using the 6.8 Exercises 259 final seven-component model PCR fit, 46.69 %. This is because PCR only attempts to maximize the amount of variance explained in the predictors, while PLS searches for directions that explain variance in both the predictors and the response.

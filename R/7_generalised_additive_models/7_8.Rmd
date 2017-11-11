@@ -1,0 +1,236 @@
+---
+title: "ISIL_7_8"
+output: github_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_7_8 Non Linear MOdelling
+
+### 7.8.1 Polynomail Regression and Step Functions
+
+```{r library, include=FALSE}
+library(ISLR)
+attach(Wage)
+set.seed(1)
+```
+
+Fit the age to wage with linear regression.
+```{r lm1}
+fit1 = lm(wage~poly(age, 4), data=Wage)
+coef(summary(fit1))
+```
+
+The generated coefficients are orthogonal polynomials, meaning that each value is a linear combination of the predictors.
+
+To obtain the predictor's cofficients directly:
+```{r lm2}
+fit2 = lm(wage~poly(age, 4, raw=T), data=Wage)
+coef(summary(fit2))
+```
+
+To create the polynomial basis functions on the fly, protecting the terms with I():
+```{r lm3}
+fit3 = lm(wage~age + I(age^2) + I(age^3) + I(age^4), data=Wage)
+coef(summary(fit2))
+```
+
+Create a grid of age values for the purpose of predictions
+```{r predict1}
+agelims = range(Wage$age)
+agelims
+age_grid = seq(from=agelims[1], to=agelims[2])
+preds = predict(fit1, newdata = list(age=age_grid), se=TRUE)
+# Get the C.I of the predictions
+se_bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+head(se_bands, 5)
+```
+
+Now plot the predictions:
+```{r plot1}
+par(mfrow =c(1,2) ,mar=c(4.5 ,4.5 ,1 ,1) ,oma=c(0,0,4,0))
+plot(age ,wage ,xlim=agelims ,cex =.5, col =" darkgrey ")
+title (" Degree -4 Polynomial ",outer =T)
+lines(age_grid ,preds$fit ,lwd =2, col =" blue")
+matlines (age_grid ,se_bands ,lwd =1, col =" blue",lty =3)
+```
+
+Below shows that there is hardly any difference between orthogonal polynomial fits and polynomial basis functions:
+
+```{r pred1vspred2}
+pred2 = predict(fit2, newdata = list(age=age_grid), se=TRUE)
+max(abs(preds$fit - pred2$fit))
+
+par(mfrow =c(1,2) ,mar=c(4.5 ,4.5 ,1 ,1) ,oma=c(0,0,4,0))
+plot(age ,wage ,xlim=agelims ,cex =.5, col =" darkgrey ")
+title (" Degree -4 Polynomial ",outer =T)
+lines(age_grid ,pred2$fit ,lwd =2, col =" blue")
+matlines (age_grid ,se_bands ,lwd =1, col =" blue",lty =3)
+```
+
+Use ANOVA to determine the number of df to use in the fit, and test the null hypothesis
+```{r anova1_polynomials}
+fit_1 = lm(wage~age, data=Wage)
+fit_2 = lm(wage~poly(age, 2), data=Wage)
+fit_3 = lm(wage~poly(age, 3), data=Wage)
+fit_4 = lm(wage~poly(age, 4), data=Wage)
+fit_5 = lm(wage~poly(age, 5), data=Wage)
+anova(fit_1, fit_2, fit_3, fit_4, fit_5)
+```
+It shows that fit_1 is inadequate, and the ANOVA for fit_3 with fit_4 indicates that the model fits best when its cubic or quartic.
+
+The above can also be achived with the coefficient summary shown below. The square t-statistic value is equal to f-stat
+```{r anova2_polynomials}
+coef(summary(fit_5))
+(-11.983034)^2
+```
+
+Below is an implementation of Logistic Regression for when the wage is more than 250K:
+```{r log_regression1}
+fit_6 = glm(I(wage>250)~poly(age, 4), data=Wage, family=binomial)
+preds3 = predict(fit_6, newdata=list(age=age_grid), se=T)
+pfit = exp(preds3$fit)/(1+exp(preds3$fit))
+se_bands_logit = cbind(preds3$fit+2*preds3$se.fit, preds3$fit-2*preds3$se.fit)
+se_bands = exp(se_bands_logit)/(1+exp(se_bands_logit))
+```
+
+The logits could have been calculated directly with family=response, but that would've resulted in negative probabilities, and hence the C.I calculations wouldn't have been possible.
+```{r log_regression_plot1}
+plot(age ,I(wage >250) ,xlim=agelims ,type ="n",ylim=c(0 ,.2))
+points(jitter(age), I((wage >250)/5) ,cex =.5, pch ="|", col =" darkgrey ")
+lines(age_grid ,pfit ,lwd=2, col =" blue")
+matlines(age_grid ,se_bands ,lwd=1, col="blue",lty =3)
+```
+
+The Step function implementation is as shown below:
+```{r step_fn_fit1}
+table(cut(age, 4))
+fit_7 = lm(wage~cut(age, 4), data=Wage)
+coef(summary(fit_7))
+```
+The intercept of $94,158 is interpreted as the salary for people with the ages below 33.5, with the subsequents salaries as an addition to the base salary of $94,158.
+
+## 7.8.2 Splines
+
+Default of cubic splines are created with the basis spline function.
+```{r spline1}
+library(splines)
+fit_8 = lm(wage~bs(age, knots=c(25, 40, 60)), data=Wage)
+pred4 = predict(fit_8, newdata=list(age=age_grid), se=T)
+plot(age ,wage ,col ="gray")
+lines(age_grid ,pred4$fit ,lwd =2)
+lines(age_grid ,pred4$fit+2*pred4$se ,lty ="dashed")
+lines(age_grid ,pred4$fit-2*pred4$se ,lty ="dashed")
+```
+
+The df option also allows one to specify the degrees of freedom
+```{r spline2}
+dim(bs(age, knots=c(25, 40, 60)))
+dim(bs(age, df=6))
+attr(bs(age, df=6), "knots")
+```
+
+To fit a natural spline, use the ns() function:
+```{r spline3}
+fit_9 = lm(wage~ns(age, df=4), data=Wage)
+pred5 = predict(fit_9, newdata=list(age=age_grid), se=T)
+plot(age ,wage ,col ="gray")
+lines(age_grid ,pred4$fit ,lwd =2)
+lines(age_grid ,pred4$fit+2*pred4$se ,lty ="dashed")
+lines(age_grid ,pred4$fit-2*pred4$se ,lty ="dashed")
+lines(age_grid, pred5$fit, col="red", lwd=2)
+lines(age_grid ,pred5$fit+2*pred5$se ,lty ="dashed", col="red")
+lines(age_grid ,pred5$fit-2*pred5$se ,lty ="dashed", col="red")
+```
+
+The Smoothing Spline imposes constraints and penalty on flexibility, which prevents the overfitting of the training data, allowing a more general model:
+```{r spline4}
+plot(age ,wage , xlim=agelims, cex=.5, col ="darkgrey")
+title("Smoothing Spline")
+fit_10 = smooth.spline(age, wage, df=16)
+fit_10$df
+fit_11 = smooth.spline(age, wage, cv=TRUE)
+fit_11$df
+lines(fit_10, col="red", lwd=2)
+lines(fit_11, col="blue", lwd=2)
+legend ("topright",legend =c("16 DF " ,"6.8 DF"), col=c("red","blue"),lty =1, lwd =2, cex =.8)
+```
+The smoothing spline reduced the df from 16 to 6.8
+
+Below is an implementation of Local Regression using the loess() function. The larger the span, the smaller the df, the smoother the fit.locfit() can also be used in R:
+```{r local_regression1}
+plot(age, wage, xlim=agelims , cex =.5, col="darkgrey")
+title("Local Regression")
+fit_12 = loess(wage~age, span=.2, data=Wage)
+fit_13 = loess(wage~age, span=.5, data=Wage)
+lines(age_grid ,predict (fit_12 ,data.frame(age=age_grid)), col="red", lwd=2)
+lines(age_grid ,predict (fit_13 ,data.frame(age=age_grid)), col="blue", lwd=2)
+legend ("topright",legend =c("Span=0.2" , "Span =0.5") , col=c("red", "blue"), lty =1, lwd=2, cex=.8)
+```
+
+7.8.3 GAMs
+
+Below is an example implmentation of a GAM fit, using the simple lm() function:
+```{r gam1}
+gam1 = lm(wage~ns(year, 4)+ns(age, 5)+education, data=Wage)
+```
+
+Below is an implementation of GAM with smoothing splines using the gam library and s() function
+```{r gam2}
+library(gam)
+gam2 = gam(wage~s(year, 4)+s(age, 5)+education, data=Wage)
+par(mfrow=c(1, 3))
+plot.gam(gam2, se=TRUE, col="blue")
+plot.gam(gam1, se=TRUE, col="red")
+```
+
+```{r anova2}
+gam3 = gam(wage~s(age, 5)+education, data=Wage)
+gam4 = gam(wage~year+s(age, 5)+education, data=Wage)
+anova(gam3, gam4, gam2)
+```
+The above shows that Model 2 with a linear function of year is more statistically significant than the model without the year predictor. There is no evidence that the GAM with the non-linear function of year (Model 3) is more statistically significant than Model 2.
+
+The summary() function produces a summary to the gam fit. The p-values for year and age correspond to a null hypothesis of a linear relationship versus the alternative of a non-linear relationship. This can be further confirmed with the plot for year:
+```{r anova3}
+summary(gam2)
+```
+
+To make predictions for Model 2:
+```{r pred_gam1}
+pred6 = predict(gam4, newdata=Wage)
+```
+
+To include Local Regression with the GAM:
+```{r gam3}
+gam5 = gam(wage~s(year, 4)+lo(age, span=0.7)+education, data=Wage)
+plot.gam(gam5, se=TRUE, col="green")
+```
+
+Using the Local Regression function with interactions between year and age:
+```{r gam4}
+gam6 = gam(wage~lo(year, age, span=0.5)+education, data=Wage)
+library (akima)
+plot(gam6)
+```
+
+To fit GAM with Logistic Regression, use the I() function: 
+```{r gam5}
+gam7 = gam(I(wage > 250)~year+s(age, df=5)+education, data=Wage, family=binomial)
+par(mfrow=c(1, 3))
+plot.gam(gam7, se=T, col="green")
+```
+
+As shown in the below table, there are no high earners below the HighSchool category:
+```{r log_reg1}
+table(education, I(wage >250))
+```
+
+So we will refit the model without sample below the HighSchool category, which will provide clearer results:
+```{r gam6}
+gam7 = gam(I(wage > 250)~year+s(age, df=5)+education, data=Wage, family=binomial, subset=(education !="1. < HS Grad"))
+par(mfrow=c(1, 3))
+plot.gam(gam7, se=T, col="green")
+```

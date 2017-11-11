@@ -1,0 +1,44 @@
+---
+title: "Functional Programming Concepts"
+output: html_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Remove Code Duplication
+
+Create a data frame, with randomly generated -99 and -999 values.
+
+```{r load_data}
+set.seed(1406)
+df_output <- data.frame(replicate(6, sample(c(1:10, c(-99, -999)), 6, rep = TRUE)))
+names(df_output) <- letters[1:6]
+df_output
+```
+
+Instead of duplicating the code for each column, the below template function with closures accepts an input value to be removed.
+
+```{r func1}
+value_remover <- function(na_value) {
+  function(x) {
+    x[x == na_value] <- NA
+    return (x)
+  }
+}
+# -99 remover
+value_99_remover <- value_remover(-99)
+# -999 remover
+value_999_remover <- value_remover(-999)
+```
+
+Data frame with -99 removed
+```{r remove1}
+as.data.frame(lapply(df_output, value_99_remover))
+```
+
+Data frame with -999 removed
+```{r remove2}
+as.data.frame(lapply(df_output, value_999_remover))
+```

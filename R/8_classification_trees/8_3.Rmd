@@ -1,0 +1,204 @@
+---
+title: "ISIL_8_3"
+output: github_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_8_3 Decision Trees
+
+### 8.3.1 Fitting Classification Trees
+
+```{r library, include=TRUE}
+library(ISLR)
+library(tree)
+attach(Carseats)
+```
+
+Fit all the predictors except Sales to High response using a Decision Tree.
+```{r fit1}
+
+Carseats$High <- ifelse(Carseats$Sales<=8, "No", "Yes")
+Carseats$High <- as.factor(Carseats$High)
+tree_carseats = tree(High~.-Sales, Carseats)
+summary(tree_carseats)
+```
+
+Plot the decision tree.
+```{r plot1}
+tree_carseats
+plot(tree_carseats)
+text(tree_carseats, pretty=0)
+```
+ShelveLoc look to be the most important predictor.
+
+Compute the test error.
+```{r predict1}
+set.seed(2)
+train = sample(1:nrow(Carseats), 200)
+Carseats_test = Carseats[-train, ]
+High_test = Carseats$High[-train]
+tree_carseats = tree(High~.-Sales, Carseats, subset = train)
+tree_pred = predict(tree_carseats, Carseats_test, type="class")
+table_test = table(tree_pred, High_test)
+(table_test[1]+table_test[4])/(table_test[1]+table_test[2]+table_test[3]+table_test[4])
+```
+
+Pruning the tree
+```{r cv1}
+set.seed(3)
+cv_carseats = cv.tree(tree_carseats, FUN=prune.misclass)
+par(mfrow=c(1, 2))
+plot(cv_carseats$size, cv_carseats$dev, type="b")
+plot(cv_carseats$k, cv_carseats$dev, type="b")
+prune_carseats = prune.misclass(tree_carseats, best=cv_carseats$size[which.min(cv_carseats$dev)])
+plot(prune_carseats)
+text(prune_carseats)
+```
+
+Prediction accuracy on pruned tree
+```{r pred2}
+tree_pred = predict(prune_carseats, Carseats_test, type="class")
+table_test = table(tree_pred, High_test)
+table_test
+(table_test[1]+table_test[4])/(table_test[1]+table_test[2]+table_test[3]+table_test[4])
+```
+
+### 8.3.2 Fitting Regression Trees
+```{r load2}
+library(MASS)
+```
+
+Using the Boston data, 3 predictors were used in the fitting of the regression tree, with 8 terminal nodes
+```{r fit2}
+set.seed(1)
+train = sample(1:nrow(Boston), nrow(Boston)/2)
+tree_boston = tree(medv~., Boston, subset=train)
+summary(tree_boston)
+```
+
+Plot the tree. It shows that a lower lstat value correlates with a higher real estate median price.(lstat < 9.715 and rm >= 7.437)
+```{r plot2}
+plot(tree_boston)
+text(tree_boston, pretty=0)
+```
+
+Use CV to prune the tree. The tree has been pruned to 7 terminal nodes, which is not far off the 8 terminal nodes associated with the original tree
+```{r fit3}
+cv_tree_boston = cv.tree(tree_boston)
+best=cv_tree_boston$size[which.min(cv_tree_boston$dev)]
+best
+prune_boston = prune.tree(tree_boston, best=best)
+```
+
+What is the prediction accuracy on the unpruned tree? (MSE)
+```{r predict2}
+pred = predict(tree_boston, newdata = Boston[-train,])
+test = Boston[-train,]$medv
+plot(pred, test)
+abline(0, 1)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+The tree is predicting within RMSE of $5004.56 of the test data.
+
+What is the prediction accuracy on the unpruned tree? (MSE)
+```{r predict3}
+pred = predict(prune_boston, newdata = Boston[-train,])
+test = Boston[-train,]$medv
+plot(pred, test)
+abline(0, 1)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+Not better than the unpruned tree.
+
+## 8.3.3 Bagging and Random Forests
+
+```{r load3, warning=FALSE}
+library(randomForest)
+set.seed(1)
+```
+
+The mtry=13 parameter implies all predictors to be considered
+```{r fit4}
+bag_boston = randomForest(medv~., data=Boston, subset=train, mtry=length(colnames(Boston))-1, importance=TRUE)
+bag_boston
+```
+
+The prediction performance of bagging is almost 1/2 that of a pruned tree. The predictions are within $3645.37 of the actual median price.
+```{r predict4}
+pred = predict(bag_boston, newdata=Boston[-train, ])
+plot(pred, test)
+abline(0, 1)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+
+The tree growth limit can also be stipulated. (RMSE of $3986.58)
+```{r predict5}
+bag_boston = randomForest(medv~., data=Boston, subset=train, mtry=length(colnames(Boston))-1, ntree=25)
+pred = predict(bag_boston, newdata=Boston[-train, ])
+plot(pred, test)
+abline(0, 1)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+
+Fit the training data against a Random Forest model with a limit of 6 predictors
+```{r fit5}
+set.seed(1)
+rand_boston = randomForest(medv~., data=Boston, subset=train, mtry=6, importance=TRUE)
+rand_boston
+pred = predict(rand_boston, newdata=Boston[-train, ])
+plot(pred, test)
+abline(0, 1)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+It further reduces the MSE to RMSE of $3388.00 within the actual median price.
+
+Below shows the importance of the predictors. lstat and rm are the most important variables.
+```{r importance1}
+importance(rand_boston)
+varImpPlot(rand_boston)
+```
+
+## 8.3.4 Boosting
+
+```{r load4, warning=FALSE}
+library(gbm)
+set.seed(1)
+```
+
+Use gaussian distribution for regression (bernoulli for binary classification), limited to 5000 trees and a depth of 4.
+```{r fit6}
+boost_boston = gbm(medv~., data=Boston[train, ], distribution="gaussian", n.trees=5000, interaction.depth=4)
+summary(boost_boston)
+```
+lstat and rm are the most important variables. Producing partial dependent plots, mdev decreases while lstat, and mdev increases while rm increases.
+
+```{r plot21}
+par(mfrow=c(1, 2))
+plot(boost_boston, i='rm')
+plot(boost_boston, i='lstat')
+```
+
+Prediction accuracy for the Boosted tree
+```{r predict6}
+pred = predict(boost_boston, newdata=Boston[-train, ], n.trees=5000)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+Similar performance to Random Forest and better than Bagging.
+
+Change the shrinkage parameter to 0.2
+```{r predict61}
+boost_boston = gbm(medv~., data=Boston[train, ], distribution="gaussian", n.trees=5000, interaction.depth=4, shrinkage=0.2)
+pred = predict(boost_boston, newdata=Boston[-train, ], n.trees=5000)
+mean((pred-test)^2)
+sqrt(mean((pred-test)^2))
+```
+The shrinkage of 0.2 improves the RMSE compared to 0.001 default value.

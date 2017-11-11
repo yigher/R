@@ -1,0 +1,128 @@
+---
+title: "ISIL_3_6"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## ISIL_3_7
+
+This is a short excerpt of the tutorials from the ISIL book (Chapter 3.7) 
+
+## 8. This question involves the use of simple linear regression on the Auto data set.
+Load the required librarys for the question
+```{r library, include=FALSE}
+library(MASS)
+library(ISLR)
+library(PerformanceAnalytics)
+```
+
+## Data
+  Load the data from the library, and print the column names
+```{r load_Auto}
+attach(Auto)
+names(Auto)
+```
+
+##  8 a) Simple Linear Regression mpg vs horsepower
+  Do a linear regression of the mpg vs horsepower
+```{r lm_mpg_horsepower}
+lm.fit = lm(mpg~horsepower, data=Auto)
+lm.fit
+summary(lm.fit)
+mean(mpg)
+```
+Is there a relationship between the predictor and the response?
+  i) There is a relationship between the predictor and the response.
+  ii) The relationship is strong, where the Null Hypothesis for β is rejected, based on the p-values, T-Stat and F-Stat values. The mean value is 23.44592, and the is a percentage error of 21%. The R-square value of 0.6059 indicates that the preidctor contributes to approximately 60% of the variability.
+  iii) It is a negative relationship.
+  iv) As shown below, the predicted value for horsepower = 98 is 24.46708 with a C.I of 23.97308 - 24.96108 and P.I of 14.8094 - 34.12476
+```{r lm_mpg_horsepower_predict}
+predict(lm.fit, data.frame(horsepower = 98), interval = "confidence")
+predict(lm.fit, data.frame(horsepower = 98), interval = "prediction")
+
+```
+
+8 b) Plot the response and the predictor. Use the abline() function to display the least squares regression line.
+```{r horsepower_mpg_plot, fig.width= 8, fig.height=8, warning=FALSE}
+plot(horsepower, mpg)
+abline(lm.fit, lwd=3, col="red")
+```
+
+8 c) Use the plot() function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.
+  The Residual vs. Fitted plot shows non-linearity between the predictor and response. The Residual vs. Leverage plot shows outliers.
+```{r horsepower_mpg_residual_plot, fig.width= 8, fig.height= 8, warning=FALSE}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+
+## 9 This question involves the use of multiple linear regression on the Auto data set.
+
+9 a) Produce a scatterplot matrix which includes all the variables in the data set.
+9 b) Produce a correlation matrix of all the variables in the data set.
+```{r horsepower_mpg_corr_plot, fig.width= 15, fig.height=15, warning=FALSE}
+chart.Correlation(Auto[, -grep("name", colnames(Auto))])
+```
+
+9 c) Create a Multi Regression Model, including all the variables in the data set.
+```{r lm_mpg_all}
+lm.fit = lm(mpg~.-name, data=Auto)
+lm.fit
+summary(lm.fit)
+```
+  i) There is a relationship between the predictors and the response based on the p-values, and F-Stat values. The mean value is 23.44592, and the is a percentage error of 14% (RSE of 3.328). The R-square value of 0.8215 indicates that the predictor contributes to approximately 82% of the variability.
+  ii) The displacement, weight, year, and origin predictors have a statistically significant relationship with the response.
+  iii) The coeffecient of year suggests an average effect of a 0.75 increase for every year increase (with all other predictor held constant). In other words,  newer cars have higher MPG than older cars.
+  
+9 d) Residual plot
+  The Residual vs. Fitted plot shows non-linearity between the predictor and response. The Residual vs. Leverage plot shows outliers (327 and 394) and leverage points (14).
+
+```{r lm_mpg_all_residual_plot, fig.width= 8, fig.height=8, warning=FALSE}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+9 e) Use the * and : symbols to fit linear regression models
+```{r lm_interaction_effect_all}
+lm.fit = lm(mpg~.^2, data=Auto[, -grep("name", colnames(Auto))])
+summary(lm.fit)
+```
+It appears that acceleration and origin are statistically significant. Overall, the model fits better with the interaction effects. The RSE has reduced to 2.695. The R-square is 0.8893, which indicates that the model covers approximately 88% of the effect of mpg. 
+```{r lm_mpg_all_interaction_residual_plot_1, fig.width= 8, fig.height=8, warning=FALSE}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+The Residual  vs Fitted plot looks fairly linear, and so does the Residual vs. Leverage plot. There are 3 outliers (323, 387 and 334)
+
+
+Removing the highly correlated predictors (displacement and weight), as well as the outliers:
+```{r lm_interaction_effect_all_clean}
+lm.fit = lm(mpg~.^2, data=Auto[-c(323, 387, 334), -grep(c("name|displacement|horsepower"), colnames(Auto))])
+summary(lm.fit)
+```
+There is a slight decrease of the model's R-squared to 0.8763. The RSE increases to 2.787.
+```{r lm_mpg_all_interaction_residual_plot_2, fig.width= 8, fig.height=8, warning=FALSE}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+The Residual  vs Fitted plot looks fairly linear, and so does the Residual vs. Leverage plot.
+
+f) Trying a few transformations of variables
+```{r horsepower_mpg_transformed_corr_plot, fig.width= 25, fig.height=25, warning=FALSE}
+Auto$log_weight = log(Auto$weight)
+Auto$log_horsepower = log(Auto$horsepower)
+Auto$log_displacement = log(Auto$displacement)
+Auto$log_cylinders = log(Auto$cylinders)
+
+Auto$sqrt_weight = sqrt(Auto$weight)
+Auto$sqrt_horsepower = sqrt(Auto$horsepower)
+Auto$sqrt_displacement = sqrt(Auto$displacement)
+Auto$sqrt_cylinders = sqrt(Auto$cylinders)
+
+Auto$sqr_weight = (Auto$weight)^2
+Auto$sqr_horsepower = (Auto$horsepower)^2
+Auto$sqr_displacement = (Auto$displacement)^2
+Auto$sqr_cylinders = (Auto$cylinders)^2
+chart.Correlation(Auto[, -grep("name", colnames(Auto))])
+```

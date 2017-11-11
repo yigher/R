@@ -1,0 +1,39 @@
+---
+  title: "Functional Programming Concepts"
+output: html_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Monoids
+
+When you deal with various types in a programming language you will notice common patterns of behavior for binary operations. Here are some examples:
+
+* Integers with addition. We know that (a+b)+c == a+(b+c) and 0+n == n+0 == n; same with multiplication: (a*b)*c == a*(b*c) and 1*n == n*1 == n
+* Strings with concatenation. a+(b+c)==(a+b)+c; ""+s==s and s+"" == s, etc.
+* Lists with concatenation, like List(1,2)+List(3,4) == List(1,2,3,4).
+* Sets with their union, like Set(1,2,3)+Set(2,4) == Set(1,2,3,4).
+
+A common pattern with a data type, a binary operation, and a special instance of the type, and certain rules is called monoid.
+
+Below is an example showing a monoid pattern to calculate the sum of multiple vectors.
+```{r func1}
+a = c(rep(1:10))
+b = c(rep(11:20))
+c = c(rep(21:30))
+all = list(a, b, c)
+add_func <- function() {
+  y <- 0
+  function(x) {
+    y<<-y + sum(x)
+    y
+  }
+}
+
+add_func1 <- add_func()
+
+z = lapply(all, add_func1)
+
+```
